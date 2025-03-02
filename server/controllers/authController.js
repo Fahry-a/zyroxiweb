@@ -118,6 +118,42 @@ const authController = {
     } catch (error) {
       next(error);
     }
+  },  // Add comma here
+
+  deleteAccount: async (req, res, next) => {
+    try {
+      const { password } = req.body;
+      const userId = req.userData.userId;
+
+      // Get user
+      const [users] = await db.execute(
+        'SELECT * FROM users WHERE id = ?',
+        [userId]
+      );
+
+      if (users.length === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const user = users[0];
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+
+      if (!isValidPassword) {
+        return res.status(401).json({ message: 'Invalid password' });
+      }
+
+      // Delete user
+      await db.execute(
+        'DELETE FROM users WHERE id = ?',
+        [userId]
+      );
+
+      res.json({ message: 'Account deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
   }
 };
 
