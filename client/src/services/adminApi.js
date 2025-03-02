@@ -10,8 +10,8 @@ export const getUserDetails = async (userId) => {
   return response.data;
 };
 
-export const updateUser = async (userId, data) => {
-  const response = await api.put(`/admin/users/${userId}`, data);
+export const updateUser = async (userId, userData) => {
+  const response = await api.put(`/admin/users/${userId}`, userData);
   return response.data;
 };
 

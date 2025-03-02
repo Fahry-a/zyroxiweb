@@ -3,11 +3,57 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 
 const authController = {
+  login: async (req, res, next) => {
+    try {
+      const { email, password } = req.body;
+
+      // Get user with role
+      const [users] = await db.execute(
+        'SELECT * FROM users WHERE email = ?',
+        [email]
+      );
+
+      if (users.length === 0) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      const user = users[0];
+
+      // Verify password
+      const isValidPassword = await bcrypt.compare(password, user.password);
+
+      if (!isValidPassword) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      // Create JWT token
+      const token = jwt.sign(
+        { 
+          userId: user.id,
+          email: user.email,
+          role: user.role
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      // Remove password from user object
+      delete user.password;
+
+      res.json({
+        token,
+        user: user
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   register: async (req, res, next) => {
     try {
       const { name, email, password } = req.body;
 
-      // Check if user already exists
+      // Check if user exists
       const [existingUsers] = await db.execute(
         'SELECT * FROM users WHERE email = ?',
         [email]
@@ -20,7 +66,7 @@ const authController = {
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Insert new user
+      // Insert user
       const [result] = await db.execute(
         'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
         [name, email, hashedPassword]
@@ -28,50 +74,7 @@ const authController = {
 
       res.status(201).json({
         message: 'User created successfully',
-        userId: result.insertId,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  login: async (req, res, next) => {
-    try {
-      const { email, password } = req.body;
-
-      // Find user
-      const [users] = await db.execute('SELECT * FROM users WHERE email = ?', [
-        email,
-      ]);
-
-      if (users.length === 0) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      const user = users[0];
-
-      // Check password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-
-      if (!isValidPassword) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user.id, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
-
-      res.json({
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          created_at: user.created_at,
-        },
+        userId: result.insertId
       });
     } catch (error) {
       next(error);
@@ -83,8 +86,11 @@ const authController = {
       const { currentPassword, newPassword } = req.body;
       const userId = req.userData.userId;
 
-      // Get user from database
-      const [users] = await db.execute('SELECT * FROM users WHERE id = ?', [userId]);
+      // Get user
+      const [users] = await db.execute(
+        'SELECT * FROM users WHERE id = ?',
+        [userId]
+      );
 
       if (users.length === 0) {
         return res.status(404).json({ message: 'User not found' });
@@ -100,45 +106,15 @@ const authController = {
       }
 
       // Hash new password
-      const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-      // Update password in database
+      // Update password
       await db.execute(
         'UPDATE users SET password = ? WHERE id = ?',
-        [hashedNewPassword, userId]
+        [hashedPassword, userId]
       );
 
-      res.json({ message: 'Password updated successfully' });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  deleteAccount: async (req, res, next) => {
-    try {
-      const { password } = req.body;
-      const userId = req.userData.userId;
-
-      // Get user from database
-      const [users] = await db.execute('SELECT * FROM users WHERE id = ?', [userId]);
-
-      if (users.length === 0) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      const user = users[0];
-
-      // Verify password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-
-      if (!isValidPassword) {
-        return res.status(401).json({ message: 'Invalid password' });
-      }
-
-      // Delete user from database
-      await db.execute('DELETE FROM users WHERE id = ?', [userId]);
-
-      res.json({ message: 'Account deleted successfully' });
+      res.json({ message: 'Password changed successfully' });
     } catch (error) {
       next(error);
     }

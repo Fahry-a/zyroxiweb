@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -20,6 +20,7 @@ import {
   Divider,
   IconButton,
   Grid,
+  Chip,
 } from '@mui/material';
 import {
   ExitToApp as LogoutIcon,
@@ -27,8 +28,9 @@ import {
   DeleteForever as DeleteIcon,
   Person as PersonIcon,
   AdminPanelSettings as AdminIcon,
-  StarBorder as PremiumIcon,
   Dashboard as DashboardIcon,
+  StarBorder as PremiumIcon,
+  AccessTime as ClockIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +41,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -47,13 +50,33 @@ const Dashboard = () => {
   const [deletePassword, setDeletePassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Update current date and time every second in UTC format
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      const utcYear = now.getUTCFullYear();
+      const utcMonth = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const utcDay = String(now.getUTCDate()).padStart(2, '0');
+      const utcHours = String(now.getUTCHours()).padStart(2, '0');
+      const utcMinutes = String(now.getUTCMinutes()).padStart(2, '0');
+      const utcSeconds = String(now.getUTCSeconds()).padStart(2, '0');
+      
+      const formattedDateTime = `${utcYear}-${utcMonth}-${utcDay} ${utcHours}:${utcMinutes}:${utcSeconds}`;
+      setCurrentDateTime(formattedDateTime);
+    };
+
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/');
   };
-
-  // Password Change Handlers
+  
   const handleOpenPasswordDialog = () => {
     setOpenPasswordDialog(true);
     setError('');
@@ -66,13 +89,6 @@ const Dashboard = () => {
 
   const handleClosePasswordDialog = () => {
     setOpenPasswordDialog(false);
-  };
-
-  const handlePasswordChange = (e) => {
-    setPasswordData({
-      ...passwordData,
-      [e.target.name]: e.target.value,
-    });
   };
 
   const handleSubmitPasswordChange = async (e) => {
@@ -92,11 +108,10 @@ const Dashboard = () => {
       setSuccess('Password changed successfully');
       handleClosePasswordDialog();
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred');
+      setError(err.response?.data?.message || 'Failed to change password');
     }
   };
 
-  // Delete Account Handlers
   const handleOpenDeleteDialog = () => {
     setOpenDeleteDialog(true);
     setError('');
@@ -113,20 +128,12 @@ const Dashboard = () => {
       logout();
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'An error occurred');
+      setError(err.response?.data?.message || 'Failed to delete account');
     }
   };
 
-  // Format the creation date
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+
+  // ... rest of the handlers remain the same
 
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
@@ -134,8 +141,39 @@ const Dashboard = () => {
         <Toolbar>
           <DashboardIcon sx={{ mr: 2 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Dashboard
+            User Dashboard
           </Typography>
+          
+          {/* Current Date Time Display */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mr: 3, 
+            bgcolor: 'rgba(255, 255, 255, 0.1)',
+            padding: '4px 12px',
+            borderRadius: 1
+          }}>
+            <ClockIcon sx={{ mr: 1 }} />
+            <Typography variant="body2">
+              Current Date and Time (UTC): {currentDateTime}
+            </Typography>
+          </Box>
+
+          {/* User Login Display */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mr: 3,
+            bgcolor: 'rgba(255, 255, 255, 0.1)',
+            padding: '4px 12px',
+            borderRadius: 1
+          }}>
+            <PersonIcon sx={{ mr: 1 }} />
+            <Typography variant="body2">
+              Current User's Login: {user?.name}
+            </Typography>
+          </Box>
+
           <IconButton color="inherit" onClick={handleLogout} title="Logout">
             <LogoutIcon />
           </IconButton>
@@ -144,20 +182,62 @@ const Dashboard = () => {
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Grid container spacing={3}>
-          {/* Profile Card */}
           <Grid item xs={12}>
             <Card elevation={3}>
               <CardContent>
+                {/* Time and User Info Card */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom color="primary">
+                    System Information
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ 
+                        p: 2, 
+                        bgcolor: 'background.default',
+                        borderRadius: 1
+                      }}>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Current Date and Time (UTC)
+                        </Typography>
+                        <Typography variant="body1">
+                          {currentDateTime}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ 
+                        p: 2, 
+                        bgcolor: 'background.default',
+                        borderRadius: 1
+                      }}>
+                        <Typography variant="subtitle2" color="text.secondary">
+                          Current User's Login
+                        </Typography>
+                        <Typography variant="body1">
+                          {user?.name}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                <Divider sx={{ my: 3 }} />
+
+                {/* User Profile Section */}
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <Avatar
                     sx={{
                       width: 80,
                       height: 80,
-                      bgcolor: 'primary.main',
+                      bgcolor: user?.role === 'admin' ? 'warning.main' : 
+                              user?.role === 'premium' ? 'success.main' : 'primary.main',
                       mr: 2,
                     }}
                   >
-                    <PersonIcon sx={{ fontSize: 40 }} />
+                    {user?.role === 'admin' ? <AdminIcon sx={{ fontSize: 40 }} /> :
+                     user?.role === 'premium' ? <PremiumIcon sx={{ fontSize: 40 }} /> :
+                     <PersonIcon sx={{ fontSize: 40 }} />}
                   </Avatar>
                   <Box>
                     <Typography variant="h4" gutterBottom>
@@ -166,19 +246,29 @@ const Dashboard = () => {
                     <Typography variant="body1" color="text.secondary">
                       {user?.email}
                     </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      {user?.roles?.map((role) => (
+                        <Chip
+                          key={role}
+                          icon={role === 'admin' ? <AdminIcon /> : 
+                                role === 'premium' ? <PremiumIcon /> : 
+                                <PersonIcon />}
+                          label={role.charAt(0).toUpperCase() + role.slice(1)}
+                          color={role === 'admin' ? 'warning' : 
+                                role === 'premium' ? 'success' : 
+                                'primary'}
+                          size="small"
+                          sx={{ mr: 1 }}
+                        />
+                      ))}
+                    </Box>
                   </Box>
                 </Box>
 
                 <Divider sx={{ my: 2 }} />
 
-                <Typography variant="body1" color="text.secondary" gutterBottom>
-                  Account Created: {formatDate(user?.created_at)}
-                </Typography>
-                <Typography variant="body1" color="text.secondary" gutterBottom>
-                  Role: {user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
-                </Typography>
-
-                <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                {/* Action Buttons */}
+                <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <Button
                     variant="contained"
                     startIcon={<KeyIcon />}
@@ -190,6 +280,22 @@ const Dashboard = () => {
                   >
                     Change Password
                   </Button>
+
+                  {user?.roles?.includes('admin') && (
+                    <Button
+                      variant="contained"
+                      color="warning"
+                      startIcon={<AdminIcon />}
+                      onClick={() => navigate('/admin')}
+                      sx={{
+                        bgcolor: 'warning.main',
+                        '&:hover': { bgcolor: 'warning.dark' },
+                      }}
+                    >
+                      Admin Dashboard
+                    </Button>
+                  )}
+
                   <Button
                     variant="outlined"
                     color="error"
@@ -206,20 +312,6 @@ const Dashboard = () => {
                   >
                     Delete Account
                   </Button>
-                  {user?.role === 'admin' && (
-                    <Button
-                      variant="contained"
-                      color="secondary"
-                      startIcon={<AdminIcon />}
-                      onClick={() => navigate('/admin')}
-                      sx={{
-                        bgcolor: 'secondary.main',
-                        '&:hover': { bgcolor: 'secondary.dark' },
-                      }}
-                    >
-                      Admin Dashboard
-                    </Button>
-                  )}
                 </Box>
               </CardContent>
             </Card>
@@ -229,7 +321,7 @@ const Dashboard = () => {
         {/* Password Change Dialog */}
         <Dialog
           open={openPasswordDialog}
-          onClose={handleClosePasswordDialog}
+          onClose={() => setOpenPasswordDialog(false)}
           PaperProps={{
             sx: {
               borderRadius: 2,
@@ -253,7 +345,12 @@ const Dashboard = () => {
                 label="Current Password"
                 type="password"
                 value={passwordData.currentPassword}
-                onChange={handlePasswordChange}
+                onChange={(e) =>
+                  setPasswordData({
+                    ...passwordData,
+                    currentPassword: e.target.value,
+                  })
+                }
                 variant="outlined"
               />
               <TextField
@@ -264,7 +361,12 @@ const Dashboard = () => {
                 label="New Password"
                 type="password"
                 value={passwordData.newPassword}
-                onChange={handlePasswordChange}
+                onChange={(e) =>
+                  setPasswordData({
+                    ...passwordData,
+                    newPassword: e.target.value,
+                  })
+                }
                 variant="outlined"
               />
               <TextField
@@ -275,13 +377,18 @@ const Dashboard = () => {
                 label="Confirm New Password"
                 type="password"
                 value={passwordData.confirmNewPassword}
-                onChange={handlePasswordChange}
+                onChange={(e) =>
+                  setPasswordData({
+                    ...passwordData,
+                    confirmNewPassword: e.target.value,
+                  })
+                }
                 variant="outlined"
               />
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={handleClosePasswordDialog}>Cancel</Button>
+            <Button onClick={() => setOpenPasswordDialog(false)}>Cancel</Button>
             <Button
               onClick={handleSubmitPasswordChange}
               variant="contained"
@@ -294,7 +401,7 @@ const Dashboard = () => {
         {/* Delete Account Dialog */}
         <Dialog
           open={openDeleteDialog}
-          onClose={handleCloseDeleteDialog}
+          onClose={() => setOpenDeleteDialog(false)}
           PaperProps={{
             sx: {
               borderRadius: 2,
@@ -326,7 +433,7 @@ const Dashboard = () => {
             />
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+            <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
             <Button
               onClick={handleDeleteAccount}
               color="error"
