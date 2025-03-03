@@ -1,15 +1,14 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import { AuthProvider, useAuth } from './context/AuthContext';
-
-// Import pages
+import { AuthProvider } from './context/AuthContext';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
 
 const theme = createTheme({
   palette: {
@@ -77,17 +76,6 @@ const theme = createTheme({
     },
   },
 });
-
-// Buat komponen AdminRoute
-const AdminRoute = ({ children }) => {
-  const { user } = useAuth();
-  
-  if (!user || user.role !== 'admin') {
-    return <Navigate to="/" />;
-  }
-  
-  return children;
-};
 
 function App() {
   return (

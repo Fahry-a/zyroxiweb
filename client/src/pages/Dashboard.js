@@ -50,8 +50,7 @@ const Dashboard = () => {
   const [deletePassword, setDeletePassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Update current date and time every second in UTC format
+
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -76,7 +75,7 @@ const Dashboard = () => {
     logout();
     navigate('/');
   };
-  
+
   const handleOpenPasswordDialog = () => {
     setOpenPasswordDialog(true);
     setError('');
@@ -85,10 +84,6 @@ const Dashboard = () => {
       newPassword: '',
       confirmNewPassword: '',
     });
-  };
-
-  const handleClosePasswordDialog = () => {
-    setOpenPasswordDialog(false);
   };
 
   const handleSubmitPasswordChange = async (e) => {
@@ -106,7 +101,7 @@ const Dashboard = () => {
         newPassword: passwordData.newPassword,
       });
       setSuccess('Password changed successfully');
-      handleClosePasswordDialog();
+      setOpenPasswordDialog(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to change password');
     }
@@ -116,10 +111,6 @@ const Dashboard = () => {
     setOpenDeleteDialog(true);
     setError('');
     setDeletePassword('');
-  };
-
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
   };
 
   const handleDeleteAccount = async () => {
@@ -132,9 +123,6 @@ const Dashboard = () => {
     }
   };
 
-
-  // ... rest of the handlers remain the same
-
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
       <AppBar position="static" elevation={0}>
@@ -144,7 +132,6 @@ const Dashboard = () => {
             User Dashboard
           </Typography>
           
-          {/* Current Date Time Display */}
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -159,7 +146,6 @@ const Dashboard = () => {
             </Typography>
           </Box>
 
-          {/* User Login Display */}
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -185,7 +171,6 @@ const Dashboard = () => {
           <Grid item xs={12}>
             <Card elevation={3}>
               <CardContent>
-                {/* Time and User Info Card */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="h6" gutterBottom color="primary">
                     System Information
@@ -224,7 +209,6 @@ const Dashboard = () => {
 
                 <Divider sx={{ my: 3 }} />
 
-                {/* User Profile Section */}
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <Avatar
                     sx={{
@@ -247,27 +231,23 @@ const Dashboard = () => {
                       {user?.email}
                     </Typography>
                     <Box sx={{ mt: 1 }}>
-                      {user?.roles?.map((role) => (
-                        <Chip
-                          key={role}
-                          icon={role === 'admin' ? <AdminIcon /> : 
-                                role === 'premium' ? <PremiumIcon /> : 
-                                <PersonIcon />}
-                          label={role.charAt(0).toUpperCase() + role.slice(1)}
-                          color={role === 'admin' ? 'warning' : 
-                                role === 'premium' ? 'success' : 
-                                'primary'}
-                          size="small"
-                          sx={{ mr: 1 }}
-                        />
-                      ))}
+                      <Chip
+                        icon={user?.role === 'admin' ? <AdminIcon /> : 
+                              user?.role === 'premium' ? <PremiumIcon /> : 
+                              <PersonIcon />}
+                        label={user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'}
+                        color={user?.role === 'admin' ? 'warning' : 
+                               user?.role === 'premium' ? 'success' : 
+                               'primary'}
+                        size="small"
+                        sx={{ mr: 1 }}
+                      />
                     </Box>
                   </Box>
                 </Box>
 
                 <Divider sx={{ my: 2 }} />
 
-                {/* Action Buttons */}
                 <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <Button
                     variant="contained"
@@ -281,7 +261,7 @@ const Dashboard = () => {
                     Change Password
                   </Button>
 
-                  {user?.roles?.includes('admin') && (
+                  {user?.role === 'admin' && (
                     <Button
                       variant="contained"
                       color="warning"

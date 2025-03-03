@@ -6,145 +6,120 @@ import {
   Button,
   AppBar,
   Toolbar,
-  IconButton,
-  Card,
-  CardContent,
-  Grid,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
   MenuItem,
-  Snackbar,
   Alert,
   Chip,
-  TablePagination,
+  Snackbar,
+  Grid,
+  Tab,
+  Tabs
 } from '@mui/material';
 import {
-  Edit as EditIcon,
   Delete as DeleteIcon,
+  Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
   AdminPanelSettings as AdminIcon,
   Person as PersonIcon,
-  ExitToApp as LogoutIcon,
-  StarBorder as PremiumIcon,
-  AccessTime as ClockIcon,
-  Group as UsersIcon,
-  Search as SearchIcon,
+  Star as PremiumIcon,
+  Block as BlockIcon,
+  Add as AddIcon,
+  RestartAlt as UnsuspendIcon
 } from '@mui/icons-material';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import {
-  getAllUsers,
-  getUserDetails,
-  updateUser,
-  deleteUser,
-  getAdminStatistics,
-} from '../services/adminApi';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 const AdminDashboard = () => {
-  const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // States
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
-  const [statistics, setStatistics] = useState({
-    totalUsers: 0,
-    newUsers: 0,
-    usersByRole: { premium: 0, admin: 0 }
-  });
   const [selectedUser, setSelectedUser] = useState(null);
   const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [currentDateTime, setCurrentDateTime] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [openAddDialog, setOpenAddDialog] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [editFormData, setEditFormData] = useState({
-    name: '',
-    email: '',
-    role: '',
+  const [loading, setLoading] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
+  const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    usersByRole: []
   });
 
-  // Update current date and time every second
-  useEffect(() => {
-    const updateDateTime = () => {
-      const now = new Date();
-      const options = {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false
-      };
-      const formatted = now.toLocaleString('en-US', options)
-        .replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2');
-      setCurrentDateTime(formatted);
-    };
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    role: ''
+  });
 
-    updateDateTime();
-    const interval = setInterval(updateDateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const [addForm, setAddForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'user'
+  });
 
-  // Fetch users and statistics
+  // Fetch users and stats
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [usersResponse, statsResponse] = await Promise.all([
+        api.get('/admin/users'),
+        api.get('/admin/dashboard')
+      ]);
+      setUsers(usersResponse.data.users);
+      setStats(statsResponse.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Filter users based on search query
-  useEffect(() => {
-    const filtered = users.filter(user => 
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredUsers(filtered);
-  }, [searchQuery, users]);
-
-  const fetchData = async () => {
+  const handleAddUser = async () => {
     try {
-      const [usersData, statsData] = await Promise.all([
-        getAllUsers(),
-        getAdminStatistics()
-      ]);
-      setUsers(usersData);
-      setFilteredUsers(usersData);
-      setStatistics(statsData);
+      await api.post('/admin/users', addForm);
+      setSuccess('User added successfully');
+      setOpenAddDialog(false);
+      setAddForm({ name: '', email: '', password: '', role: 'user' });
+      fetchData();
     } catch (err) {
-      setError('Failed to fetch data');
+      setError(err.response?.data?.message || 'Failed to add user');
     }
   };
 
-  const handleEditClick = async (userId) => {
-    try {
-      const userData = await getUserDetails(userId);
-      setSelectedUser(userData);
-      setEditFormData({
-        name: userData.name,
-        email: userData.email,
-        role: userData.role,
-      });
-      setOpenEditDialog(true);
-    } catch (err) {
-      setError('Failed to fetch user details');
-    }
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setEditForm({
+      name: user.name,
+      email: user.email,
+      role: user.role
+    });
+    setOpenEditDialog(true);
   };
 
-  const handleEditSubmit = async () => {
+  const handleUpdateUser = async () => {
     try {
-      await updateUser(selectedUser.id, editFormData);
+      await api.put(`/admin/users/${selectedUser.id}`, editForm);
       setSuccess('User updated successfully');
       setOpenEditDialog(false);
       fetchData();
@@ -153,349 +128,365 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleDeleteClick = (userData) => {
-    setSelectedUser(userData);
-    setOpenDeleteDialog(true);
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await api.delete(`/admin/users/${userId}`);
+        setSuccess('User deleted successfully');
+        fetchData();
+      } catch (err) {
+        setError(err.response?.data?.message || 'Failed to delete user');
+      }
+    }
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleSuspendUser = async (userId) => {
     try {
-      await deleteUser(selectedUser.id);
-      setSuccess('User deleted successfully');
-      setOpenDeleteDialog(false);
+      await api.put(`/admin/users/${userId}/suspend`);
+      setSuccess('User suspended successfully');
       fetchData();
     } catch (err) {
-      setError('Failed to delete user');
+      setError(err.response?.data?.message || 'Failed to suspend user');
     }
   };
 
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
+  const handleUnsuspendUser = async (userId) => {
+    try {
+      await api.put(`/admin/users/${userId}/unsuspend`);
+      setSuccess('User unsuspended successfully');
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to unsuspend user');
+    }
   };
 
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+  const fetchLogs = async () => {
+    try {
+      const response = await api.get('/admin/logs');
+      setLogs(response.data.logs);
+    } catch (err) {
+      setError('Failed to fetch logs');
+    }
   };
 
-  const getRoleBadge = (role) => {
-    switch(role) {
+  useEffect(() => {
+    if (tabValue === 2) {
+      fetchLogs();
+    }
+  }, [tabValue]);
+
+  const getRoleChipProps = (role) => {
+    switch (role) {
       case 'admin':
-        return (
-          <Chip
-            icon={<AdminIcon />}
-            label="Administrator"
-            color="warning"
-            size="small"
-            sx={{ fontWeight: 500 }}
-          />
-        );
+        return {
+          icon: <AdminIcon />,
+          color: 'error',
+          label: 'Admin'
+        };
       case 'premium':
-        return (
-          <Chip
-            icon={<PremiumIcon />}
-            label="Premium"
-            color="success"
-            size="small"
-            sx={{ fontWeight: 500 }}
-          />
-        );
+        return {
+          icon: <PremiumIcon />,
+          color: 'warning',
+          label: 'Premium'
+        };
       default:
-        return (
-          <Chip
-            icon={<PersonIcon />}
-            label="Regular"
-            color="primary"
-            size="small"
-            sx={{ fontWeight: 500 }}
-          />
-        );
+        return {
+          icon: <PersonIcon />,
+          color: 'primary',
+          label: 'User'
+        };
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
+  const renderContent = () => {
+    switch (tabValue) {
+      case 0: // Dashboard
+        return (
+          <>
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Total Users
+                  </Typography>
+                  <Typography variant="h3">
+                    {stats.totalUsers}
+                  </Typography>
+                </Paper>
+              </Grid>
+              {stats.usersByRole.map((roleStats) => (
+                <Grid item xs={12} md={4} key={roleStats.role}>
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                      {roleStats.role.charAt(0).toUpperCase() + roleStats.role.slice(1)}s
+                    </Typography>
+                    <Typography variant="h3">
+                      {roleStats.count}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+
+            <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+              <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  startIcon={<AddIcon />}
+                  variant="contained"
+                  onClick={() => setOpenAddDialog(true)}
+                >
+                  Add New User
+                </Button>
+              </Box>
+              <TableContainer>
+                <Table stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Role</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Chip {...getRoleChipProps(user.role)} />
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={user.suspended ? 'Suspended' : 'Active'}
+                            color={user.suspended ? 'error' : 'success'}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton
+                            onClick={() => handleEditUser(user)}
+                            color="primary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            onClick={() => handleDeleteUser(user.id)}
+                            color="error"
+                            disabled={user.role === 'admin'}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                          {user.role !== 'admin' && (
+                            <IconButton
+                              onClick={() => user.suspended ? 
+                                handleUnsuspendUser(user.id) : 
+                                handleSuspendUser(user.id)
+                              }
+                              color={user.suspended ? 'success' : 'warning'}
+                            >
+                              {user.suspended ? <UnsuspendIcon /> : <BlockIcon />}
+                            </IconButton>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </>
+        );
+
+      case 1: // User Management
+        return (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Advanced User Management
+            </Typography>
+            {/* Add more features as needed */}
+          </Paper>
+        );
+
+      case 2: // Logs
+        return (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              System Logs
+            </Typography>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Timestamp</TableCell>
+                    <TableCell>Action</TableCell>
+                    <TableCell>User</TableCell>
+                    <TableCell>Details</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {logs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                      <TableCell>{log.action}</TableCell>
+                      <TableCell>{log.userEmail}</TableCell>
+                      <TableCell>{log.details}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-      <AppBar position="static" elevation={0}>
+      <AppBar position="static">
         <Toolbar>
+          <IconButton
+            edge="start"
+            color="inherit"
+            onClick={() => navigate('/dashboard')}
+            sx={{ mr: 2 }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
           <AdminIcon sx={{ mr: 2 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Admin Dashboard
           </Typography>
-
-          {/* Current Date Time Display */}
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mr: 3,
-            bgcolor: 'rgba(255, 255, 255, 0.1)',
-            padding: '4px 12px',
-            borderRadius: 1
-          }}>
-            <ClockIcon sx={{ mr: 1 }} />
-            <Typography variant="body2">
-              Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {currentDateTime}
-            </Typography>
-          </Box>
-
-          {/* Current User Display */}
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            mr: 3,
-            bgcolor: 'rgba(255, 255, 255, 0.1)',
-            padding: '4px 12px',
-            borderRadius: 1
-          }}>
-            <PersonIcon sx={{ mr: 1 }} />
-            <Typography variant="body2">
-              Current User's Login: {user?.name}
-            </Typography>
-          </Box>
-
-          <Button
-            color="inherit"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/dashboard')}
-            sx={{ mr: 2 }}
-          >
-            User Dashboard
-          </Button>
-
-          <IconButton 
-            color="inherit" 
-            onClick={() => {
-              logout();
-              navigate('/');
-            }}
-            title="Logout"
-          >
-            <LogoutIcon />
-          </IconButton>
+          <Typography variant="body2">
+            Logged in as: {user?.name} (Admin)
+          </Typography>
         </Toolbar>
+        <Tabs
+          value={tabValue}
+          onChange={(e, newValue) => setTabValue(newValue)}
+          sx={{ bgcolor: 'primary.dark' }}
+        >
+          <Tab label="Dashboard" />
+          <Tab label="User Management" />
+          <Tab label="Logs" />
+        </Tabs>
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <UsersIcon sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6">Total Users</Typography>
-                </Box>
-                <Typography variant="h4">{statistics.totalUsers}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <PersonIcon sx={{ mr: 1, color: 'success.main' }} />
-                  <Typography variant="h6">Regular Users</Typography>
-                </Box>
-                <Typography variant="h4">
-                  {statistics.totalUsers - (statistics.usersByRole.premium + statistics.usersByRole.admin)}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <PremiumIcon sx={{ mr: 1, color: 'warning.main' }} />
-                  <Typography variant="h6">Premium Users</Typography>
-                </Box>
-                <Typography variant="h4">{statistics.usersByRole.premium}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <AdminIcon sx={{ mr: 1, color: 'error.main' }} />
-                  <Typography variant="h6">Admins</Typography>
-                </Box>
-                <Typography variant="h4">{statistics.usersByRole.admin}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        {renderContent()}
 
-        {/* Search Box */}
-        <Box sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Search users by name, email or role..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
-            }}
-          />
-        </Box>
-
-        {/* Users Table */}
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Created At</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredUsers
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{formatDate(user.created_at)}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        onClick={() => handleEditClick(user.id)}
-                        size="small"
-                        sx={{ color: 'primary.main' }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => handleDeleteClick(user)}
-                        size="small"
-                        sx={{ color: 'error.main' }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={filteredUsers.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </TableContainer>
+        {/* Add User Dialog */}
+        <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)}>
+          <DialogTitle>Add New User</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2 }}>
+              <TextField
+                fullWidth
+                label="Name"
+                value={addForm.name}
+                onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={addForm.email}
+                onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Password"
+                type="password"
+                value={addForm.password}
+                onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                select
+                label="Role"
+                value={addForm.role}
+                onChange={(e) => setAddForm({ ...addForm, role: e.target.value })}
+              >
+                <MenuItem value="user">User</MenuItem>
+                <MenuItem value="premium">Premium</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+              </TextField>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setOpenAddDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddUser} color="primary">
+              Add User
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Edit User Dialog */}
-        <Dialog 
-          open={openEditDialog} 
-          onClose={() => setOpenEditDialog(false)}
-        >
+        <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)}>
           <DialogTitle>Edit User</DialogTitle>
           <DialogContent>
-            <TextField
-              margin="normal"
-              fullWidth
-              label="Name"
-              value={editFormData.name}
-              onChange={(e) =>
-                setEditFormData({ ...editFormData, name: e.target.value })
-              }
-            />
-            <TextField
-              margin="normal"
-              fullWidth
-              label="Email"
-              value={editFormData.email}
-              onChange={(e) =>
-                setEditFormData({ ...editFormData, email: e.target.value })
-              }
-            />
-            <TextField
-              margin="normal"
-              fullWidth
-              select
-              label="Role"
-              value={editFormData.role}
-              onChange={(e) =>
-                setEditFormData({ ...editFormData, role: e.target.value })
-              }
-            >
-              <MenuItem value="user">Regular User</MenuItem>
-              <MenuItem value="premium">Premium User</MenuItem>
-              <MenuItem value="admin">Administrator</MenuItem>
-            </TextField>
+            <Box sx={{ pt: 2 }}>
+              <TextField
+                fullWidth
+                label="Name"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                label="Email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                fullWidth
+                select
+                label="Role"
+                value={editForm.role}
+                onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+              >
+                <MenuItem value="user">User</MenuItem>
+                <MenuItem value="premium">Premium</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+              </TextField>
+            </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
-            <Button onClick={handleEditSubmit} variant="contained">
+            <Button onClick={handleUpdateUser} color="primary">
               Save Changes
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Delete User Dialog */}
-        <Dialog
-          open={openDeleteDialog}
-          onClose={() => setOpenDeleteDialog(false)}
-        >
-          <DialogTitle>Delete User</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete user "{selectedUser?.name}"?
-              This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
-            <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Snackbars */}
+        {/* Error Snackbar */}
         <Snackbar
           open={!!error}
           autoHideDuration={6000}
           onClose={() => setError('')}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          <Alert 
-            onClose={() => setError('')} 
-            severity="error"
-          >
+          <Alert onClose={() => setError('')} severity="error">
             {error}
           </Alert>
         </Snackbar>
 
-                <Snackbar
+        {/* Success Snackbar */}
+        <Snackbar
           open={!!success}
           autoHideDuration={6000}
           onClose={() => setSuccess('')}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          <Alert 
-            onClose={() => setSuccess('')} 
-            severity="success"
-          >
+          <Alert onClose={() => setSuccess('')} severity="success">
             {success}
           </Alert>
         </Snackbar>
