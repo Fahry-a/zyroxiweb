@@ -1,18 +1,21 @@
 const express = require('express');
+const router = express.Router();
 const adminController = require('../controllers/adminController');
-const auth = require('../middleware/auth');
 const adminAuth = require('../middleware/adminAuth');
 
-const router = express.Router();
-
-// Protect all admin routes with authentication and admin check
-router.use(auth);
+// Apply admin authentication middleware to all routes
 router.use(adminAuth);
 
-router.get('/users', adminController.getAllUsers);
-router.get('/users/:userId', adminController.getUserDetails);
-router.put('/users/:userId', adminController.updateUser);
-router.delete('/users/:userId', adminController.deleteUser);
-router.get('/statistics', adminController.getStatistics);
+// User management routes
+router.get('/users', adminController.getUsers);
+router.post('/users', adminController.createUser);
+router.put('/users/:id', adminController.updateUser);
+router.delete('/users/:id', adminController.deleteUser);
+router.patch('/users/:id/status', adminController.updateUserStatus);
+router.post('/users/:id/reset-password', adminController.resetUserPassword);
+
+// Activity logs routes
+router.get('/logs', adminController.getLogs);
+router.get('/users/:userId/logs', adminController.getUserLogs);
 
 module.exports = router;

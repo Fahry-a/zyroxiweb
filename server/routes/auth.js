@@ -1,56 +1,16 @@
 const express = require('express');
-const { body } = require('express-validator');
-const authController = require('../controllers/authController');
-const validate = require('../middleware/validate');
-const auth = require('../middleware/auth');
-
 const router = express.Router();
+const authController = require('../controllers/authController');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
-router.post(
-  '/register',
-  [
-    body('name').trim().notEmpty().withMessage('Name is required'),
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password')
-      .isLength({ min: 6 })
-      .withMessage('Password must be at least 6 characters long'),
-  ],
-  validate,
-  authController.register
-);
+// Public routes
+router.post('/register', authController.register);
+router.post('/login', authController.login);
 
-router.post(
-  '/login',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password').notEmpty().withMessage('Password is required'),
-  ],
-  validate,
-  authController.login
-);
-
-router.put(
-  '/change-password',
-  auth,
-  [
-    body('currentPassword').notEmpty().withMessage('Current password is required'),
-    body('newPassword')
-      .isLength({ min: 6 })
-      .withMessage('New password must be at least 6 characters long'),
-  ],
-  validate,
-  authController.changePassword
-);
-
-// Add new delete account route
-router.delete(
-  '/delete-account',
-  auth,
-  [
-    body('password').notEmpty().withMessage('Password is required to delete account'),
-  ],
-  validate,
-  authController.deleteAccount
-);
+// Protected routes
+router.use(authMiddleware);
+router.post('/change-password', authController.changePassword);
+router.delete('/delete-account', authController.deleteAccount);
+router.get('/profile', authController.getProfile);
 
 module.exports = router;

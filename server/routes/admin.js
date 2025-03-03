@@ -1,38 +1,21 @@
 const express = require('express');
-const { body } = require('express-validator');
-const adminController = require('../controllers/adminController');
-const auth = require('../middleware/auth');
-const isAdmin = require('../middleware/adminAuth');
-const validate = require('../middleware/validate');
-
 const router = express.Router();
+const { authMiddleware, isAdmin } = require('../middleware/authMiddleware');
+const adminController = require('../controllers/adminController');
 
-// Semua route memerlukan authentication dan admin role
-router.use(auth);
+// Protect all admin routes
+router.use(authMiddleware);
 router.use(isAdmin);
 
-// Get all users
+// Admin routes
+router.get('/dashboard', adminController.getDashboardStats);
 router.get('/users', adminController.getAllUsers);
-
-// Get user details
-router.get('/users/:userId', adminController.getUserDetails);
-
-// Update user
-router.put(
-  '/users/:userId',
-  [
-    body('name').optional().trim().notEmpty(),
-    body('email').optional().isEmail(),
-    body('role').optional().isIn(['user', 'admin']),
-  ],
-  validate,
-  adminController.updateUser
-);
-
-// Delete user
-router.delete('/users/:userId', adminController.deleteUser);
-
-// Get dashboard statistics
-router.get('/statistics', adminController.getStatistics);
+router.post('/users', adminController.createUser);
+router.get('/users/:id', adminController.getUserById);
+router.put('/users/:id', adminController.updateUser);
+router.delete('/users/:id', adminController.deleteUser);
+router.put('/users/:id/suspend', adminController.suspendUser);
+router.put('/users/:id/unsuspend', adminController.unsuspendUser);
+router.get('/logs', adminController.getLogs);
 
 module.exports = router;
