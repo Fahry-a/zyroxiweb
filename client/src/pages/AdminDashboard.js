@@ -27,24 +27,23 @@ import {
   Toolbar,
   Tabs,
   Tab,
-  Alert,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Block as BlockIcon,
-  CheckCircle as UnsuspendIcon,
   AdminPanelSettings as AdminIcon,
   Star as PremiumIcon,
   Person as PersonIcon,
-  ArrowBack as ArrowBackIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const AdminDashboard = () => {
-  const navigate = useNavigate(); // Pindahkan hooks ke atas komponen
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState({
@@ -67,7 +66,8 @@ const AdminDashboard = () => {
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
-    role: 'user'
+    role: 'user',
+    suspended: false
   });
 
   const fetchData = async () => {
@@ -126,7 +126,8 @@ const AdminDashboard = () => {
     setEditForm({
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      suspended: user.suspended
     });
     setOpenEditDialog(true);
   };
@@ -158,27 +159,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleSuspendUser = async (userId) => {
-    try {
-      await api.put(`/admin/users/${userId}/suspend`);
-      setSuccess('User suspended successfully');
-      fetchData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to suspend user');
-    }
-  };
-
-  const handleUnsuspendUser = async (userId) => {
-    try {
-      await api.put(`/admin/users/${userId}/unsuspend`);
-      setSuccess('User unsuspended successfully');
-      fetchData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to unsuspend user');
-    }
-  };
-
-  const UserTable = ({ users, onEdit, onDelete, onSuspend, onUnsuspend }) => (
+  const UserTable = ({ users, onEdit, onDelete }) => (
     <TableContainer>
       <Table stickyHeader>
         <TableHead>
@@ -230,14 +211,6 @@ const AdminDashboard = () => {
                 >
                   <DeleteIcon />
                 </IconButton>
-                {user.role !== 'admin' && (
-                  <IconButton
-                    onClick={() => user.suspended ? onUnsuspend(user.id) : onSuspend(user.id)}
-                    color={user.suspended ? 'success' : 'warning'}
-                  >
-                    {user.suspended ? <UnsuspendIcon /> : <BlockIcon />}
-                  </IconButton>
-                )}
               </TableCell>
             </TableRow>
           ))}
@@ -298,8 +271,6 @@ const AdminDashboard = () => {
                 users={users}
                 onEdit={handleEditUser}
                 onDelete={handleDeleteUser}
-                onSuspend={handleSuspendUser}
-                onUnsuspend={handleUnsuspendUser}
               />
             </Paper>
           </>
@@ -325,8 +296,6 @@ const AdminDashboard = () => {
               users={users}
               onEdit={handleEditUser}
               onDelete={handleDeleteUser}
-              onSuspend={handleSuspendUser}
-              onUnsuspend={handleUnsuspendUser}
             />
           </Paper>
         );
@@ -402,9 +371,15 @@ const AdminDashboard = () => {
           </Alert>
         )}
         {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
-            {success}
-          </Alert>
+          <Snackbar
+            open={Boolean(success)}
+            autoHideDuration={6000}
+            onClose={() => setSuccess(null)}
+          >
+            <Alert onClose={() => setSuccess(null)} severity="success" sx={{ width: '100%' }}>
+              {success}
+            </Alert>
+          </Snackbar>
         )}
         {renderContent()}
       </Container>
@@ -476,7 +451,7 @@ const AdminDashboard = () => {
               onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
               sx={{ mb: 2 }}
             />
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>Role</InputLabel>
               <Select
                 value={editForm.role}
@@ -485,6 +460,16 @@ const AdminDashboard = () => {
                 <MenuItem value="user">User</MenuItem>
                 <MenuItem value="premium">Premium</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={editForm.suspended ? 'suspended' : 'active'}
+                onChange={(e) => setEditForm({ ...editForm, suspended: e.target.value === 'suspended' })}
+              >
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="suspended">Suspended</MenuItem>
               </Select>
             </FormControl>
           </Box>

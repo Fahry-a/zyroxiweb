@@ -8,6 +8,7 @@ import {
   Alert,
   Paper,
   Link,
+  CircularProgress,
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -19,10 +20,12 @@ const Login = () => {
     password: '',
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login: authLogin } = useAuth();
 
   const handleChange = (e) => {
+    setError(''); // Clear error when user types
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -31,13 +34,33 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError('');
+    
     try {
+      // Basic validation
+      if (!formData.email || !formData.password) {
+        throw new Error('Please fill in all fields');
+      }
+
       const response = await login(formData);
-      console.log('Login response:', response);
-      authLogin(response.user, response.token);
+      
+      if (!response.token || !response.user) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Successfully logged in
+      await authLogin(response.user, response.token);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      console.error('Login error:', err);
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        'Login failed. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -82,6 +105,8 @@ const Login = () => {
               autoFocus
               value={formData.email}
               onChange={handleChange}
+              error={!!error}
+              disabled={loading}
             />
             <TextField
               margin="normal"
@@ -94,14 +119,17 @@ const Login = () => {
               autoComplete="current-password"
               value={formData.password}
               onChange={handleChange}
+              error={!!error}
+              disabled={loading}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              disabled={loading}
             >
-              Login
+              {loading ? <CircularProgress size={24} /> : 'Login'}
             </Button>
             <Box sx={{ textAlign: 'center' }}>
               <Link component={RouterLink} to="/register" variant="body2">
