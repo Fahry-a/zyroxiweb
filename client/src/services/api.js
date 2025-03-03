@@ -1,14 +1,15 @@
 import axios from 'axios';
+import Swal from 'sweetalert2'; // Tambahkan import ini
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // 10 second timeout
+  timeout: 10000,
 });
 
-// Request interceptor
+// Request interceptor tetap sama
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -22,7 +23,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor dengan perbaikan
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -33,7 +34,6 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Try to refresh token
         const response = await api.post('/auth/refresh-token');
         const { token } = response.data;
 
@@ -42,33 +42,52 @@ api.interceptors.response.use(
 
         return api(originalRequest);
       } catch (refreshError) {
-        // If refresh token fails, logout user
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
 
-    // Handle suspended account
+    // Handle suspended account - Perbaikan di sini
     if (error.response?.status === 403 && error.response?.data?.message?.includes('suspended')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      
+      await Swal.fire({
+        icon: 'error',
+        title: 'Account Suspended',
+        text: 'Your account has been suspended. Please contact administrator for more information.',
+        confirmButtonText: 'OK'
+      });
+      
       window.location.href = '/login';
+      return Promise.reject(error);
     }
 
     return Promise.reject(error);
   }
 );
 
-// Auth functions
+// Auth functions dengan perbaikan
 export const login = async (credentials) => {
   try {
     const response = await api.post('/auth/login', credentials);
     return response.data;
   } catch (error) {
+    // Tangani suspended account di sini juga
+    if (error.response?.status === 403 && error.response?.data?.message?.includes('suspended')) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Account Suspended',
+        text: 'Your account has been suspended. Please contact administrator for more information.',
+        confirmButtonText: 'OK'
+      });
+    }
     throw error;
   }
 };
+
+// ... rest of the code remains the same ...
 
 export const register = async (userData) => {
   try {

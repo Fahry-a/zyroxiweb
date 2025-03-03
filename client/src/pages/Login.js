@@ -13,6 +13,7 @@ import {
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login } from '../services/api';
+import Swal from 'sweetalert2';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -25,7 +26,7 @@ const Login = () => {
   const { login: authLogin } = useAuth();
 
   const handleChange = (e) => {
-    setError(''); // Clear error when user types
+    setError('');
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -38,7 +39,6 @@ const Login = () => {
     setError('');
     
     try {
-      // Basic validation
       if (!formData.email || !formData.password) {
         throw new Error('Please fill in all fields');
       }
@@ -49,16 +49,26 @@ const Login = () => {
         throw new Error('Invalid response from server');
       }
 
-      // Successfully logged in
       await authLogin(response.user, response.token);
       navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      setError(
-        err.response?.data?.message || 
-        err.message || 
-        'Login failed. Please try again.'
-      );
+      
+      if (err.response?.status === 403 && err.response?.data?.message?.includes('suspended')) {
+        setError('Your account has been suspended. Please contact administrator.');
+        await Swal.fire({
+          icon: 'error',
+          title: 'Account Suspended',
+          text: 'Your account has been suspended. Please contact administrator.',
+          confirmButtonText: 'OK'
+        });
+      } else {
+        setError(
+          err.response?.data?.message || 
+          err.message || 
+          'Login failed. Please try again.'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -131,9 +141,41 @@ const Login = () => {
             >
               {loading ? <CircularProgress size={24} /> : 'Login'}
             </Button>
-            <Box sx={{ textAlign: 'center' }}>
-              <Link component={RouterLink} to="/register" variant="body2">
-                {"Don't have an account? Register"}
+
+            {/* Menambahkan link Register */}
+            <Box sx={{ 
+              mt: 2, 
+              display: 'flex', 
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <Link
+                component={RouterLink}
+                to="/register"
+                variant="body2"
+                sx={{
+                  textDecoration: 'none',
+                  color: 'primary.main',
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+              >
+                Don't have an account? Register here
+              </Link>
+              <Link
+                component={RouterLink}
+                to="/forgot-password"
+                variant="body2"
+                sx={{
+                  textDecoration: 'none',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    textDecoration: 'underline'
+                  }
+                }}
+              >
+                Forgot password?
               </Link>
             </Box>
           </Box>
